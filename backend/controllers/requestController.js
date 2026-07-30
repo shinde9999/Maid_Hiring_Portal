@@ -9,7 +9,7 @@ exports.sendRequest = async(req,res)=>{
   work_hours
  } = req.body;
 
- try {
+  try {
   const result = await pool.query(
     `
     INSERT INTO requests
@@ -31,6 +31,18 @@ exports.sendRequest = async(req,res)=>{
      work_hours
     ]
   );
+
+  // Notify the maid
+  const maidUserRes = await pool.query("SELECT user_id FROM maid_profiles WHERE id = $1", [maid_id]);
+  if (maidUserRes.rows.length > 0) {
+    const maidUserId = maidUserRes.rows[0].user_id;
+    const clientRes = await pool.query("SELECT name FROM users WHERE id = $1", [req.user.id]);
+    const clientName = clientRes.rows[0]?.name || "Client";
+    await pool.query(
+      "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
+      [maidUserId, "New Booking Request", `You received a new booking request from ${clientName}.`]
+    );
+  }
 
   res.json(result.rows[0]);
  } catch (err) {
@@ -144,6 +156,32 @@ exports.updateRequestStatus = async (req, res) => {
       [status, id]
     );
 
+    // Notify the other party
+    if (['Accepted', 'Rejected'].includes(status)) {
+      // notify client
+      const maidNameRes = await pool.query(
+        "SELECT u.name FROM users u JOIN maid_profiles m ON u.id = m.user_id WHERE m.id = $1",
+        [request.maid_id]
+      );
+      const maidName = maidNameRes.rows[0]?.name || "Maid";
+      await pool.query(
+        "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
+        [request.user_id, "Booking Status Update", `${maidName} has ${status.toLowerCase()} your booking request.`]
+      );
+    } else if (status === 'Cancelled') {
+      // notify maid
+      const maidUserRes = await pool.query("SELECT user_id FROM maid_profiles WHERE id = $1", [request.maid_id]);
+      if (maidUserRes.rows.length > 0) {
+        const maidUserId = maidUserRes.rows[0].user_id;
+        const clientRes = await pool.query("SELECT name FROM users WHERE id = $1", [req.user.id]);
+        const clientName = clientRes.rows[0]?.name || "Client";
+        await pool.query(
+          "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
+          [maidUserId, "Booking Cancelled", `${clientName} has cancelled their booking request.`]
+        );
+      }
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error('updateRequestStatus error:', err);
@@ -176,11 +214,26 @@ exports.acceptRequest = async (req, res) => {
       WHERE id = $2 AND maid_id = $3
       RETURNING *
       `,
-      ['accepted', requestId, profileId]
+      ['Accepted', requestId, profileId]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json('Request not found or not assigned to you');
+    }
+
+    // Notify the client
+    const reqRes = await pool.query("SELECT user_id, maid_id FROM requests WHERE id = $1", [requestId]);
+    if (reqRes.rows.length > 0) {
+      const clientUserId = reqRes.rows[0].user_id;
+      const maidNameRes = await pool.query(
+        "SELECT u.name FROM users u JOIN maid_profiles m ON u.id = m.user_id WHERE m.id = $1",
+        [reqRes.rows[0].maid_id]
+      );
+      const maidName = maidNameRes.rows[0]?.name || "Maid";
+      await pool.query(
+        "INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)",
+        [clientUserId, "Booking Status Update", `${maidName} has accepted your booking request.`]
+      );
     }
 
     // Return only minimal response to avoid sending maid contact/details

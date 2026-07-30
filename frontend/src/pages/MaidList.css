@@ -1,0 +1,11 @@
+.maids-container{
+  max-width:1000px;
+  margin:24px auto;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-start;
+}
+
+.maid-filter{
+  margin:12px 0;
+}

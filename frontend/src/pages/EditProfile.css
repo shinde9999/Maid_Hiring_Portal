@@ -1,0 +1,45 @@
+.edit-profile{
+  max-width:680px;
+  margin:24px auto;
+  padding:20px;
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.06);
+}
+
+.edit-profile h2{margin-top:0;margin-bottom:12px;color:#333}
+
+.edit-profile label{display:block;margin-top:10px;font-weight:600;color:#222}
+
+.edit-profile input[type="text"],
+.edit-profile input[type="number"],
+.edit-profile textarea{
+  width:100%;
+  padding:10px 12px;
+  margin-top:6px;
+  border:1px solid #ddd;
+  border-radius:6px;
+  box-sizing:border-box;
+}
+
+.edit-profile input[type="text"], .edit-profile input[type="number"]{padding:10px}
+
+.edit-profile textarea{min-height:80px}
+
+.edit-profile .actions{margin-top:18px}
+
+.btn-primary{
+  background:#2563eb;
+  color:#fff;
+  padding:10px 16px;
+  border-radius:6px;
+  border:none;
+  cursor:pointer;
+  font-weight:600;
+}
+
+.btn-primary:disabled{opacity:0.6;cursor:default}
+
+.chips-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #ddd;border-radius:16px;background:#f7f7f7}
+.chip-remove{background:transparent;border:none;color:#888;cursor:pointer;font-weight:700}

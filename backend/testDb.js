@@ -1,12 +1,19 @@
 const pool = require("./config/db");
 
-pool.query("SELECT NOW()", (err, res) => {
+pool.query(`
+  SELECT column_name, column_default 
+  FROM information_schema.columns 
+  WHERE table_schema='public' AND table_name='requests'
+  ORDER BY ordinal_position
+`, (err, res) => {
   if (err) {
-    console.log(err);
+    console.error(err);
   } else {
-    console.log("Database Connected");
+    console.log("Column defaults for requests table:");
     console.log(res.rows);
   }
 
   pool.end();
 });
+
+

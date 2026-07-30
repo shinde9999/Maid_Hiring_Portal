@@ -13,19 +13,15 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 
-const maidRoutes =
-require("./routes/maidRoutes");
-
+const maidRoutes = require("./routes/maidRoutes");
 app.use("/api/maids", maidRoutes);
 
+const requestRoutes = require("./routes/requestRoutes");
+app.use("/api/requests", requestRoutes);
 
-const requestRoutes =
-require("./routes/requestRoutes");
-
-app.use(
- "/api/requests",
- requestRoutes
-);
+app.use("/api/admin", require("./routes/adminRoutes"));
+app.use("/api/chat", require("./routes/chatRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 // ensure uploads folder exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -59,7 +55,38 @@ async function ensureColumns() {
     await pool.query("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS photo_url TEXT;");
     await pool.query("ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS languages TEXT;");
 
-    console.log('Schema check: ensured maid_profiles columns, ratings table, and users table fields');
+    // Create messages table if not exists
+    await pool.query(`CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      sender_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      receiver_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT now()
+    );`);
+
+    // Create notifications table if not exists
+    await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      message TEXT,
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT now()
+    );`);
+
+    // Seed default admin user if no admin exists
+    const adminCheck = await pool.query("SELECT * FROM users WHERE role = 'admin' LIMIT 1");
+    if (adminCheck.rows.length === 0) {
+      const bcrypt = require("bcryptjs");
+      const hashedPassword = await bcrypt.hash("admin123", 10);
+      await pool.query(
+        "INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)",
+        ["System Admin", "admin@maidportal.com", hashedPassword, "admin"]
+      );
+      console.log("Seeded default admin user (admin@maidportal.com / admin123)");
+    }
+
+    console.log('Schema check: ensured maid_profiles columns, ratings table, users table fields, chat, notifications, and admin seeding');
   } catch (err) {
     console.error('Schema migration failed:', err.message || err);
     // do not throw — allow server to start so user can see logs
