@@ -296,9 +296,16 @@
   line-height: 1.45;
 }
 
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-end;
+  margin-top: 0.15rem;
+}
+
 .message-time {
   font-size: 0.65rem;
-  align-self: flex-end;
   opacity: 0.75;
 }
 
@@ -308,6 +315,28 @@
 
 .message-bubble-wrapper.own .message-time {
   color: rgba(255, 255, 255, 0.8);
+}
+
+.message-status-tick {
+  font-size: 0.8rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.message-status-tick.sending {
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+
+.message-status-tick.sent,
+.message-status-tick.delivered {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.message-status-tick.read {
+  color: #38bdf8; /* Sky blue tick matching WhatsApp premium blue tick */
+  text-shadow: 0 0 4px rgba(56, 189, 248, 0.4);
 }
 
 /* Chat Input Form */

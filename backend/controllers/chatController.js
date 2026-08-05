@@ -5,6 +5,12 @@ exports.getContacts = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Mark messages sent to this user as 'delivered' if they were 'sent'
+    await pool.query(
+      "UPDATE messages SET status = 'delivered' WHERE receiver_id = $1 AND status = 'sent'",
+      [userId]
+    );
+
     // Get users with whom the current user has messaged
     const contactsRes = await pool.query(
       `SELECT DISTINCT u.id, u.name, u.email, u.role, u.photo_url
@@ -66,6 +72,12 @@ exports.getMessages = async (req, res) => {
         [userId, `New message from ${senderName}%`]
       );
     }
+
+    // Mark messages from otherUserId to userId as read
+    await pool.query(
+      "UPDATE messages SET status = 'read' WHERE sender_id = $1 AND receiver_id = $2 AND status != 'read'",
+      [otherUserId, userId]
+    );
 
     const messagesRes = await pool.query(
       `SELECT * FROM messages

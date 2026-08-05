@@ -658,3 +658,211 @@
     flex-direction: column;
   }
 }
+
+/* Interactivity & Chart Upgrades */
+.interactive-card {
+  cursor: pointer;
+}
+.interactive-card:hover {
+  border-color: var(--primary);
+  background-color: rgba(79, 70, 229, 0.02);
+}
+
+.charts-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.chart-card-wrapper {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.chart-card-wrapper h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.donut-chart-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 1rem;
+}
+
+.chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.legend-item.interactive {
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+
+.legend-item.interactive:hover {
+  background-color: rgba(79, 70, 229, 0.05);
+  color: var(--primary);
+}
+
+.legend-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-weight: 600;
+}
+
+.donut-tooltip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(15, 23, 42, 0.95);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: 130px;
+  z-index: 10;
+}
+
+.donut-tooltip strong {
+  font-size: 0.8rem;
+  margin-bottom: 0.15rem;
+}
+
+/* CSV Export Button */
+.export-btn {
+  padding: 0.65rem 1.25rem;
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  margin-left: auto; /* Push to right side of filter bar */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.export-btn:hover {
+  background-color: rgba(79, 70, 229, 0.05);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Accordion Detail Rows */
+.expanded-row td {
+  background-color: rgba(79, 70, 229, 0.03) !important;
+}
+
+.detail-expanded-row td {
+  padding: 0 !important;
+  background-color: #f8fafc;
+}
+
+.detail-row-content {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.detail-grid div {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.detail-grid div strong {
+  color: var(--text-main);
+  margin-right: 0.25rem;
+}
+
+.detail-grid .span-all-cols {
+  grid-column: 1 / -1;
+}
+
+.detail-message-box {
+  background-color: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--text-main);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Quick Status Actions */
+.quick-approve-btn {
+  background-color: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid rgba(34, 197, 94, 0.2) !important;
+}
+
+.quick-approve-btn:hover {
+  background-color: #22c55e !important;
+  color: white !important;
+}
+
+.quick-reject-btn {
+  background-color: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+.quick-reject-btn:hover {
+  background-color: #ef4444 !important;
+  color: white !important;
+}

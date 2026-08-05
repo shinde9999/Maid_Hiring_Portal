@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import API from "../services/api";
 import "./AdminDashboard.css";
@@ -25,6 +25,19 @@ function AdminDashboard() {
   const [roleFilter, setRoleFilter] = useState("");
   const [availabilityFilter, setAvailabilityFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+
+  // Sorting states
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState("asc");
+
+  // Expanded row states
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [expandedMaidId, setExpandedMaidId] = useState(null);
+  const [expandedRequestId, setExpandedRequestId] = useState(null);
+
+  // Hover states for interactive charts
+  const [hoveredDonutSegment, setHoveredDonutSegment] = useState(null);
+  const [hoveredBar, setHoveredBar] = useState(null);
 
   // Loading states
   const [loading, setLoading] = useState(false);
@@ -116,6 +129,93 @@ function AdminDashboard() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sorting helper logic
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const sortData = (data, field, order) => {
+    if (!field) return data;
+    return [...data].sort((a, b) => {
+      let valA = a[field];
+      let valB = b[field];
+
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+
+      const numA = Number(valA);
+      const numB = Number(valB);
+      if (!isNaN(numA) && !isNaN(numB) && valA !== "" && valB !== "") {
+        return order === "asc" ? numA - numB : numB - numA;
+      }
+
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      if (strA < strB) return order === "asc" ? -1 : 1;
+      if (strA > strB) return order === "asc" ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // CSV Export utility
+  const exportToCSV = (data, filename, headers) => {
+    if (!data || data.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    const csvRows = [];
+    csvRows.push(headers.join(","));
+
+    for (const row of data) {
+      const values = headers.map(header => {
+        let val = row[header];
+        if (val === null || val === undefined) {
+          val = "";
+        } else if (typeof val === "object") {
+          val = JSON.stringify(val);
+        }
+        const escaped = ("" + val).replace(/"/g, '\\"');
+        return `"${escaped}"`;
+      });
+      csvRows.push(values.join(","));
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Quick inline Booking Status Change
+  const handleQuickStatusChange = async (id, newStatus) => {
+    try {
+      const request = requests.find(r => r.id === id);
+      if (!request) return;
+
+      const dateFormatted = request.start_date ? new Date(request.start_date).toISOString().split("T")[0] : "";
+      
+      await API.put(`/admin/requests/${id}`, {
+        status: newStatus,
+        start_date: dateFormatted,
+        work_hours: request.work_hours || "8",
+        message: request.message || ""
+      });
+      loadData();
+    } catch (err) {
+      alert(err.response?.data || err.message || "Failed to update status");
+    }
+  };
 
   // --- USER OPERATIONS ---
   const openCreateUserModal = () => {
@@ -276,6 +376,10 @@ function AdminDashboard() {
     return matchesSearch && matchesStatus;
   });
 
+  const sortedUsers = sortData(filteredUsers, sortField, sortOrder);
+  const sortedMaids = sortData(filteredMaids, sortField, sortOrder);
+  const sortedRequests = sortData(filteredRequests, sortField, sortOrder);
+
   return (
     <div className="admin-page">
       <Navbar />
@@ -327,46 +431,255 @@ function AdminDashboard() {
                   <h2 className="content-title">Stats Overview</h2>
                   
                   <div className="stats-grid">
-                    <div className="stat-card blue">
+                    <div 
+                      className="stat-card blue interactive-card"
+                      onClick={() => { setActiveTab("users"); setRoleFilter(""); setSearchQuery(""); }}
+                      title="Click to view all users"
+                    >
                       <div className="stat-icon">👥</div>
                       <div className="stat-info">
                         <h4>Total Users</h4>
                         <p>{stats.totalUsers}</p>
                       </div>
                     </div>
-                    <div className="stat-card green">
+                    <div 
+                      className="stat-card green interactive-card"
+                      onClick={() => { setActiveTab("maids"); setAvailabilityFilter(""); setSearchQuery(""); }}
+                      title="Click to view all maids"
+                    >
                       <div className="stat-icon">🧹</div>
                       <div className="stat-info">
                         <h4>Total Maids</h4>
                         <p>{stats.totalMaids} ({stats.totalProfiles} Profiles)</p>
                       </div>
                     </div>
-                    <div className="stat-card yellow">
+                    <div 
+                      className="stat-card yellow interactive-card"
+                      onClick={() => { setActiveTab("users"); setRoleFilter("user"); setSearchQuery(""); }}
+                      title="Click to view client users"
+                    >
                       <div className="stat-icon">🤝</div>
                       <div className="stat-info">
                         <h4>Clients</h4>
                         <p>{stats.totalClients}</p>
                       </div>
                     </div>
-                    <div className="stat-card purple">
+                    <div 
+                      className="stat-card purple interactive-card"
+                      onClick={() => { setActiveTab("requests"); setStatusFilter(""); setSearchQuery(""); }}
+                      title="Click to view all bookings"
+                    >
                       <div className="stat-icon">📅</div>
                       <div className="stat-info">
                         <h4>Total Requests</h4>
                         <p>{stats.totalRequests}</p>
                       </div>
                     </div>
-                    <div className="stat-card orange">
+                    <div 
+                      className="stat-card orange interactive-card"
+                      onClick={() => { setActiveTab("requests"); setStatusFilter("Pending"); setSearchQuery(""); }}
+                      title="Click to view pending bookings"
+                    >
                       <div className="stat-icon">🔔</div>
                       <div className="stat-info">
                         <h4>Pending Bookings</h4>
                         <p>{stats.activeRequests}</p>
                       </div>
                     </div>
-                    <div className="stat-card teal">
+                    <div 
+                      className="stat-card teal interactive-card"
+                      onClick={() => { 
+                        setActiveTab("maids"); 
+                        setSortField("rating_avg"); 
+                        setSortOrder("desc"); 
+                        setSearchQuery("");
+                      }}
+                      title="Click to sort maids by rating"
+                    >
                       <div className="stat-icon">⭐</div>
                       <div className="stat-info">
                         <h4>Avg Maid Rating</h4>
                         <p>{stats.averageRating} / 5.0</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Interactive SVG Charts Section */}
+                  <div className="charts-container">
+                    <div className="chart-card-wrapper">
+                      <h3>Booking Status Distribution</h3>
+                      <div className="donut-chart-flex">
+                        <div className="svg-donut-wrapper" style={{ position: 'relative', width: '160px', height: '160px' }}>
+                          <svg viewBox="0 0 100 100" width="100%" height="100%">
+                            <circle cx="50" cy="50" r="35" fill="var(--bg-card)" />
+                            {(() => {
+                              const totalCount = requests.length;
+                              const pending = requests.filter(r => r.status === 'Pending').length;
+                              const accepted = requests.filter(r => r.status === 'Accepted').length;
+                              const rejected = requests.filter(r => r.status === 'Rejected').length;
+                              const cancelled = requests.filter(r => r.status === 'Cancelled').length;
+
+                              const chartData = [
+                                { name: 'Pending', count: pending, color: '#f59e0b' },
+                                { name: 'Accepted', count: accepted, color: '#22c55e' },
+                                { name: 'Rejected', count: rejected, color: '#ef4444' },
+                                { name: 'Cancelled', count: cancelled, color: '#64748b' }
+                              ].filter(s => s.count > 0);
+
+                              const radius = 35;
+                              const circumference = 2 * Math.PI * radius;
+                              let accumulatedPercentage = 0;
+
+                              return (
+                                <>
+                                  {chartData.map((s) => {
+                                    const percentage = s.count / (totalCount || 1);
+                                    const offset = accumulatedPercentage * circumference;
+                                    accumulatedPercentage += percentage;
+                                    return (
+                                      <circle
+                                        key={s.name}
+                                        cx="50"
+                                        cy="50"
+                                        r={radius}
+                                        fill="transparent"
+                                        stroke={s.color}
+                                        strokeWidth={hoveredDonutSegment?.name === s.name ? "12" : "9"}
+                                        strokeDasharray={`${percentage * circumference} ${circumference}`}
+                                        strokeDashoffset={-offset}
+                                        transform="rotate(-90 50 50)"
+                                        style={{ 
+                                          cursor: 'pointer', 
+                                          transition: 'stroke-width 0.2s, opacity 0.2s', 
+                                          opacity: hoveredDonutSegment && hoveredDonutSegment.name !== s.name ? 0.6 : 1 
+                                        }}
+                                        onMouseEnter={() => setHoveredDonutSegment(s)}
+                                        onMouseLeave={() => setHoveredDonutSegment(null)}
+                                        onClick={() => {
+                                          setStatusFilter(s.name);
+                                          setActiveTab("requests");
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                  <text x="50" y="48" textAnchor="middle" style={{ fontSize: '8px', fontWeight: '800', fill: 'var(--text-main)' }}>{totalCount}</text>
+                                  <text x="50" y="55" textAnchor="middle" style={{ fontSize: '4px', fontWeight: '600', fill: 'var(--text-muted)' }}>Bookings</text>
+                                </>
+                              );
+                            })()}
+                          </svg>
+                          {hoveredDonutSegment && (
+                            <div className="donut-tooltip">
+                              <strong>{hoveredDonutSegment.name}</strong>
+                              <span>{hoveredDonutSegment.count} ({((hoveredDonutSegment.count / (requests.length || 1)) * 100).toFixed(0)}%)</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="chart-legend">
+                          {(() => {
+                            const pending = requests.filter(r => r.status === 'Pending').length;
+                            const accepted = requests.filter(r => r.status === 'Accepted').length;
+                            const rejected = requests.filter(r => r.status === 'Rejected').length;
+                            const cancelled = requests.filter(r => r.status === 'Cancelled').length;
+
+                            return [
+                              { name: 'Pending', count: pending, color: '#f59e0b' },
+                              { name: 'Accepted', count: accepted, color: '#22c55e' },
+                              { name: 'Rejected', count: rejected, color: '#ef4444' },
+                              { name: 'Cancelled', count: cancelled, color: '#64748b' }
+                            ].map((s) => (
+                              <div 
+                                key={s.name} 
+                                className="legend-item interactive"
+                                onClick={() => {
+                                  setStatusFilter(s.name);
+                                  setActiveTab("requests");
+                                }}
+                                onMouseEnter={() => setHoveredDonutSegment(s)}
+                                onMouseLeave={() => setHoveredDonutSegment(null)}
+                                style={{
+                                  backgroundColor: hoveredDonutSegment?.name === s.name ? 'rgba(79, 70, 229, 0.05)' : 'transparent'
+                                }}
+                              >
+                                <span className="legend-color-dot" style={{ backgroundColor: s.color }} />
+                                <span className="legend-label">{s.name} ({s.count})</span>
+                              </div>
+                            ));
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="chart-card-wrapper">
+                      <h3>Maid Availability Status</h3>
+                      <div className="bar-chart-container" style={{ position: 'relative', height: '160px' }}>
+                        {(() => {
+                          const available = maids.filter(m => m.availability === 'Available').length;
+                          const busy = maids.filter(m => m.availability === 'Busy').length;
+                          const unavailable = maids.filter(m => m.availability === 'Unavailable').length;
+                          const totalMaids = maids.length;
+
+                          const data = [
+                            { name: 'Available', count: available, color: '#22c55e' },
+                            { name: 'Busy', count: busy, color: '#f59e0b' },
+                            { name: 'Unavailable', count: unavailable, color: '#ef4444' }
+                          ];
+
+                          const maxCount = Math.max(...data.map(d => d.count), 1);
+
+                          return (
+                            <div className="svg-bar-chart-wrapper" style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', padding: '10px 10px 20px 10px' }}>
+                              {data.map((b) => {
+                                const heightPercent = (b.count / maxCount) * 70;
+                                return (
+                                  <div 
+                                    key={b.name} 
+                                    className="bar-column" 
+                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, cursor: 'pointer' }}
+                                    onMouseEnter={() => setHoveredBar(b)}
+                                    onMouseLeave={() => setHoveredBar(null)}
+                                    onClick={() => {
+                                      setAvailabilityFilter(b.name);
+                                      setActiveTab("maids");
+                                    }}
+                                  >
+                                    <div 
+                                      className="bar-rect" 
+                                      style={{ 
+                                        height: `${Math.max(heightPercent, 5)}%`,
+                                        width: '36px', 
+                                        backgroundColor: b.color, 
+                                        borderRadius: '4px 4px 0 0',
+                                        transition: 'all 0.2s',
+                                        opacity: hoveredBar && hoveredBar.name !== b.name ? 0.6 : 1,
+                                      }}
+                                    />
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-main)', marginTop: '6px' }}>{b.name}</span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>{b.count} ({totalMaids > 0 ? ((b.count / totalMaids) * 100).toFixed(0) : 0}%)</span>
+                                  </div>
+                                );
+                              })}
+
+                              {hoveredBar && (
+                                <div className="bar-tooltip" style={{
+                                  position: 'absolute',
+                                  top: '0px',
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                  color: 'white',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.7rem',
+                                  pointerEvents: 'none',
+                                  zIndex: 10
+                                }}>
+                                  <strong>{hoveredBar.name}</strong>: {hoveredBar.count} maids
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -384,7 +697,27 @@ function AdminDashboard() {
                                 <strong>{r.client_name}</strong> booked <strong>{r.maid_name}</strong>
                                 <p>{r.message?.slice(0, 50)}...</p>
                               </div>
-                              <span className={`status-badge ${r.status}`}>{r.status}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {r.status === 'Pending' && (
+                                  <div className="recent-item-actions" style={{ display: 'flex', gap: '4px' }}>
+                                    <button 
+                                      onClick={() => handleQuickStatusChange(r.id, "Accepted")} 
+                                      className="quick-approve-btn small-btn"
+                                      style={{ padding: '2px 6px', fontSize: '10px', backgroundColor: '#dcfce7', color: '#15803d', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                      ✔
+                                    </button>
+                                    <button 
+                                      onClick={() => handleQuickStatusChange(r.id, "Rejected")} 
+                                      className="quick-reject-btn small-btn"
+                                      style={{ padding: '2px 6px', fontSize: '10px', backgroundColor: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                      ✖
+                                    </button>
+                                  </div>
+                                )}
+                                <span className={`status-badge ${r.status}`}>{r.status}</span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -437,48 +770,89 @@ function AdminDashboard() {
                       <option value="maid">Maids (Maid)</option>
                       <option value="admin">Administrators</option>
                     </select>
+                    <button 
+                      onClick={() => exportToCSV(sortedUsers, "users_export", ["id", "name", "email", "role", "contact", "address", "languages", "created_at"])} 
+                      className="export-btn"
+                    >
+                      📥 Export CSV
+                    </button>
                   </div>
 
                   <div className="table-responsive">
                     <table className="admin-table">
                       <thead>
                         <tr>
-                          <th>ID</th>
-                          <th>Name</th>
-                          <th>Email</th>
-                          <th>Role</th>
+                          <th onClick={() => handleSort("id")} style={{ cursor: "pointer" }}>
+                            ID {sortField === "id" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("name")} style={{ cursor: "pointer" }}>
+                            Name {sortField === "name" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("email")} style={{ cursor: "pointer" }}>
+                            Email {sortField === "email" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("role")} style={{ cursor: "pointer" }}>
+                            Role {sortField === "role" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
                           <th>Contact</th>
                           <th>Address</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredUsers.length === 0 ? (
+                        {sortedUsers.length === 0 ? (
                           <tr>
                             <td colSpan="7" className="empty-table-row">No users found matching query.</td>
                           </tr>
                         ) : (
-                          filteredUsers.map((u) => (
-                            <tr key={u.id}>
-                              <td>{u.id}</td>
-                              <td className="font-semibold">{u.name}</td>
-                              <td>{u.email}</td>
-                              <td>
-                                <span className={`role-badge ${u.role}`}>{u.role}</span>
-                              </td>
-                              <td>{u.contact || "N/A"}</td>
-                              <td>{u.address || "N/A"}</td>
-                              <td>
-                                <div className="action-buttons">
-                                  <button onClick={() => openEditUserModal(u)} className="edit-btn">
-                                    Edit
-                                  </button>
-                                  <button onClick={() => handleDeleteUser(u.id)} className="delete-btn">
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                          sortedUsers.map((u) => (
+                            <React.Fragment key={u.id}>
+                              <tr 
+                                onClick={(e) => {
+                                  if (e.target.tagName !== "BUTTON") {
+                                    setExpandedUserId(expandedUserId === u.id ? null : u.id);
+                                  }
+                                }}
+                                style={{ cursor: "pointer" }}
+                                className={expandedUserId === u.id ? "expanded-row" : ""}
+                              >
+                                <td>{u.id}</td>
+                                <td className="font-semibold">{u.name}</td>
+                                <td>{u.email}</td>
+                                <td>
+                                  <span className={`role-badge ${u.role}`}>{u.role}</span>
+                                </td>
+                                <td>{u.contact || "N/A"}</td>
+                                <td>{u.address || "N/A"}</td>
+                                <td>
+                                  <div className="action-buttons">
+                                    <button onClick={() => openEditUserModal(u)} className="edit-btn">
+                                      Edit
+                                    </button>
+                                    <button onClick={() => handleDeleteUser(u.id)} className="delete-btn">
+                                      Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expandedUserId === u.id && (
+                                <tr className="detail-expanded-row">
+                                  <td colSpan="7">
+                                    <div className="detail-row-content">
+                                      <div className="detail-grid">
+                                        <div><strong>Full Name:</strong> {u.name}</div>
+                                        <div><strong>Email:</strong> {u.email}</div>
+                                        <div><strong>Role:</strong> {u.role}</div>
+                                        <div><strong>Phone:</strong> {u.contact || "None"}</div>
+                                        <div><strong>Address:</strong> {u.address || "None"}</div>
+                                        <div><strong>Languages:</strong> {u.languages || "None"}</div>
+                                        <div><strong>Created At:</strong> {new Date(u.created_at).toLocaleString()}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           ))
                         )}
                       </tbody>
@@ -510,56 +884,105 @@ function AdminDashboard() {
                       <option value="Unavailable">Unavailable</option>
                       <option value="Busy">Busy</option>
                     </select>
+                    <button 
+                      onClick={() => exportToCSV(sortedMaids, "maids_export", ["id", "maid_name", "maid_email", "age", "gender", "experience", "salary", "availability", "skills", "timings", "languages"])} 
+                      className="export-btn"
+                    >
+                      📥 Export CSV
+                    </button>
                   </div>
 
                   <div className="table-responsive">
                     <table className="admin-table">
                       <thead>
                         <tr>
-                          <th>ID</th>
-                          <th>Name</th>
+                          <th onClick={() => handleSort("id")} style={{ cursor: "pointer" }}>
+                            ID {sortField === "id" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("maid_name")} style={{ cursor: "pointer" }}>
+                            Name {sortField === "maid_name" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
                           <th>Age / Gender</th>
-                          <th>Experience</th>
-                          <th>Salary</th>
+                          <th onClick={() => handleSort("experience")} style={{ cursor: "pointer" }}>
+                            Experience {sortField === "experience" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("salary")} style={{ cursor: "pointer" }}>
+                            Salary {sortField === "salary" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
                           <th>Skills</th>
                           <th>Timings</th>
-                          <th>Availability</th>
-                          <th>Rating</th>
+                          <th onClick={() => handleSort("availability")} style={{ cursor: "pointer" }}>
+                            Availability {sortField === "availability" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("rating_avg")} style={{ cursor: "pointer" }}>
+                            Rating {sortField === "rating_avg" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
                           <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredMaids.length === 0 ? (
+                        {sortedMaids.length === 0 ? (
                           <tr>
                             <td colSpan="10" className="empty-table-row">No maid profiles found.</td>
                           </tr>
                         ) : (
-                          filteredMaids.map((m) => (
-                            <tr key={m.id}>
-                              <td>{m.id}</td>
-                              <td className="font-semibold">{m.maid_name}</td>
-                              <td>{m.age} yrs / {m.gender}</td>
-                              <td>{m.experience} yrs</td>
-                              <td>₹{m.salary}</td>
-                              <td>{m.skills || "N/A"}</td>
-                              <td>{m.timings || "N/A"}</td>
-                              <td>
-                                <span className={`avail-badge ${m.availability}`}>{m.availability}</span>
-                              </td>
-                              <td className="font-semibold">
-                                ⭐ {Number(m.rating_avg || 0).toFixed(1)} ({m.rating_count || 0})
-                              </td>
-                              <td>
-                                <div className="action-buttons">
-                                  <button onClick={() => openEditMaidModal(m)} className="edit-btn">
-                                    Edit
-                                  </button>
-                                  <button onClick={() => handleDeleteMaidProfile(m.id)} className="delete-btn">
-                                    Delete Profile
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                          sortedMaids.map((m) => (
+                            <React.Fragment key={m.id}>
+                              <tr
+                                onClick={(e) => {
+                                  if (e.target.tagName !== "BUTTON") {
+                                    setExpandedMaidId(expandedMaidId === m.id ? null : m.id);
+                                  }
+                                }}
+                                style={{ cursor: "pointer" }}
+                                className={expandedMaidId === m.id ? "expanded-row" : ""}
+                              >
+                                <td>{m.id}</td>
+                                <td className="font-semibold">{m.maid_name}</td>
+                                <td>{m.age} yrs / {m.gender}</td>
+                                <td>{m.experience} yrs</td>
+                                <td>₹{m.salary}</td>
+                                <td>{m.skills || "N/A"}</td>
+                                <td>{m.timings || "N/A"}</td>
+                                <td>
+                                  <span className={`avail-badge ${m.availability}`}>{m.availability}</span>
+                                </td>
+                                <td className="font-semibold">
+                                  ⭐ {Number(m.rating_avg || 0).toFixed(1)} ({m.rating_count || 0})
+                                </td>
+                                <td>
+                                  <div className="action-buttons">
+                                    <button onClick={() => openEditMaidModal(m)} className="edit-btn">
+                                      Edit
+                                    </button>
+                                    <button onClick={() => handleDeleteMaidProfile(m.id)} className="delete-btn">
+                                      Delete Profile
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expandedMaidId === m.id && (
+                                <tr className="detail-expanded-row">
+                                  <td colSpan="10">
+                                    <div className="detail-row-content">
+                                      <div className="detail-grid">
+                                        <div><strong>Maid Name:</strong> {m.maid_name}</div>
+                                        <div><strong>Email:</strong> {m.maid_email}</div>
+                                        <div><strong>Age / Gender:</strong> {m.age} years / {m.gender}</div>
+                                        <div><strong>Experience:</strong> {m.experience} Years</div>
+                                        <div><strong>Salary:</strong> ₹{m.salary} / Month</div>
+                                        <div><strong>Availability:</strong> {m.availability}</div>
+                                        <div><strong>Timings:</strong> {m.timings || "None"}</div>
+                                        <div><strong>Contact Phone:</strong> {m.contact || "None"}</div>
+                                        <div><strong>Address:</strong> {m.address || "None"}</div>
+                                        <div><strong>Languages Spoken:</strong> {m.languages || "None"}</div>
+                                        <div><strong>Skills:</strong> {m.skills || "None"}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           ))
                         )}
                       </tbody>
@@ -592,50 +1015,105 @@ function AdminDashboard() {
                       <option value="Rejected">Rejected</option>
                       <option value="Cancelled">Cancelled</option>
                     </select>
+                    <button 
+                      onClick={() => exportToCSV(sortedRequests, "bookings_export", ["id", "client_name", "client_email", "maid_name", "start_date", "work_hours", "status", "message"])} 
+                      className="export-btn"
+                    >
+                      📥 Export CSV
+                    </button>
                   </div>
 
                   <div className="table-responsive">
                     <table className="admin-table">
                       <thead>
                         <tr>
-                          <th>Booking ID</th>
-                          <th>Client Name</th>
-                          <th>Maid Name</th>
-                          <th>Start Date</th>
-                          <th>Hours</th>
+                          <th onClick={() => handleSort("id")} style={{ cursor: "pointer" }}>
+                            Booking ID {sortField === "id" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("client_name")} style={{ cursor: "pointer" }}>
+                            Client Name {sortField === "client_name" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("maid_name")} style={{ cursor: "pointer" }}>
+                            Maid Name {sortField === "maid_name" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("start_date")} style={{ cursor: "pointer" }}>
+                            Start Date {sortField === "start_date" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
+                          <th onClick={() => handleSort("work_hours")} style={{ cursor: "pointer" }}>
+                            Hours {sortField === "work_hours" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
                           <th>Message</th>
-                          <th>Status</th>
+                          <th onClick={() => handleSort("status")} style={{ cursor: "pointer" }}>
+                            Status {sortField === "status" && (sortOrder === "asc" ? "▲" : "▼")}
+                          </th>
                           <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredRequests.length === 0 ? (
+                        {sortedRequests.length === 0 ? (
                           <tr>
                             <td colSpan="8" className="empty-table-row">No booking requests found.</td>
                           </tr>
                         ) : (
-                          filteredRequests.map((r) => (
-                            <tr key={r.id}>
-                              <td>#{r.id}</td>
-                              <td className="font-semibold">{r.client_name}</td>
-                              <td className="font-semibold">{r.maid_name}</td>
-                              <td>{r.start_date ? new Date(r.start_date).toLocaleDateString() : "N/A"}</td>
-                              <td>{r.work_hours} hrs</td>
-                              <td className="message-cell" title={r.message}>{r.message || "N/A"}</td>
-                              <td>
-                                <span className={`status-badge ${r.status}`}>{r.status}</span>
-                              </td>
-                              <td>
-                                <div className="action-buttons">
-                                  <button onClick={() => openEditRequestModal(r)} className="edit-btn">
-                                    Change Status
-                                  </button>
-                                  <button onClick={() => handleDeleteRequest(r.id)} className="delete-btn">
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                          sortedRequests.map((r) => (
+                            <React.Fragment key={r.id}>
+                              <tr
+                                onClick={(e) => {
+                                  if (e.target.tagName !== "BUTTON" && e.target.className !== "quick-approve-btn" && e.target.className !== "quick-reject-btn") {
+                                    setExpandedRequestId(expandedRequestId === r.id ? null : r.id);
+                                  }
+                                }}
+                                style={{ cursor: "pointer" }}
+                                className={expandedRequestId === r.id ? "expanded-row" : ""}
+                              >
+                                <td>#{r.id}</td>
+                                <td className="font-semibold">{r.client_name}</td>
+                                <td className="font-semibold">{r.maid_name}</td>
+                                <td>{r.start_date ? new Date(r.start_date).toLocaleDateString() : "N/A"}</td>
+                                <td>{r.work_hours} hrs</td>
+                                <td className="message-cell" title={r.message}>{r.message || "N/A"}</td>
+                                <td>
+                                  <span className={`status-badge ${r.status}`}>{r.status}</span>
+                                </td>
+                                <td>
+                                  <div className="action-buttons">
+                                    {r.status === "Pending" && (
+                                      <>
+                                        <button onClick={() => handleQuickStatusChange(r.id, "Accepted")} className="quick-approve-btn">
+                                          Approve ✔
+                                        </button>
+                                        <button onClick={() => handleQuickStatusChange(r.id, "Rejected")} className="quick-reject-btn">
+                                          Reject ✖
+                                        </button>
+                                      </>
+                                    )}
+                                    <button onClick={() => openEditRequestModal(r)} className="edit-btn">
+                                      Change Status
+                                    </button>
+                                    <button onClick={() => handleDeleteRequest(r.id)} className="delete-btn">
+                                      Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expandedRequestId === r.id && (
+                                <tr className="detail-expanded-row">
+                                  <td colSpan="8">
+                                    <div className="detail-row-content">
+                                      <div className="detail-grid">
+                                        <div><strong>Booking ID:</strong> #{r.id}</div>
+                                        <div><strong>Client Name:</strong> {r.client_name} ({r.client_email})</div>
+                                        <div><strong>Maid Name:</strong> {r.maid_name} (Skills: {r.maid_skills || "None"})</div>
+                                        <div><strong>Start Date:</strong> {r.start_date ? new Date(r.start_date).toLocaleString() : "N/A"}</div>
+                                        <div><strong>Work Hours per Day:</strong> {r.work_hours} Hours</div>
+                                        <div><strong>Booking Status:</strong> {r.status}</div>
+                                        <div className="span-all-cols"><strong>Client Message:</strong> <div className="detail-message-box">{r.message || "No message provided."}</div></div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           ))
                         )}
                       </tbody>

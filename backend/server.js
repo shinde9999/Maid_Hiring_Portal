@@ -64,6 +64,10 @@ async function ensureColumns() {
       created_at TIMESTAMP DEFAULT now()
     );`);
 
+    // Ensure status column exists in messages table and backfill null values
+    await pool.query("ALTER TABLE IF EXISTS messages ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'sent';");
+    await pool.query("UPDATE messages SET status = 'read' WHERE status IS NULL;");
+
     // Create notifications table if not exists
     await pool.query(`CREATE TABLE IF NOT EXISTS notifications (
       id SERIAL PRIMARY KEY,

@@ -4,6 +4,13 @@ const pool = require("../config/db");
 exports.getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // Mark messages sent to this user as 'delivered' if they were 'sent'
+    await pool.query(
+      "UPDATE messages SET status = 'delivered' WHERE receiver_id = $1 AND status = 'sent'",
+      [userId]
+    );
+
     const result = await pool.query(
       "SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50",
       [userId]

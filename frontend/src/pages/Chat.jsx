@@ -94,6 +94,7 @@ function Chat() {
       sender_id: user.id,
       receiver_id: activeContact.id,
       message: msgText,
+      status: "sending",
       created_at: new Date().toISOString()
     };
     setMessages(prev => [...prev, tempMsg]);
@@ -231,16 +232,27 @@ function Chat() {
                 ) : (
                   messages.map((msg) => {
                     const isOwn = msg.sender_id === user.id;
+                    const status = msg.status || "sent";
                     return (
                       <div key={msg.id} className={`message-bubble-wrapper ${isOwn ? "own" : "their"}`}>
                         <div className="message-bubble">
                           <p className="message-text">{msg.message}</p>
-                          <span className="message-time">
-                            {new Date(msg.created_at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit"
-                            })}
-                          </span>
+                          <div className="message-meta">
+                            <span className="message-time">
+                              {new Date(msg.created_at).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              })}
+                            </span>
+                            {isOwn && (
+                              <span className={`message-status-tick ${status}`}>
+                                {status === "sending" && "🕒"}
+                                {status === "sent" && "✓"}
+                                {status === "delivered" && "✓✓"}
+                                {status === "read" && "✓✓"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
