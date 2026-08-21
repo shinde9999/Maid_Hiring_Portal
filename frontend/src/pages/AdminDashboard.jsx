@@ -1230,10 +1230,19 @@ function AdminDashboard() {
         <div className="admin-modal-overlay">
           <div className="admin-modal">
             <div className="modal-header">
-              <h3>Edit Maid Profile details</h3>
+              <h3>Edit Profile: {selectedMaid?.maid_name}</h3>
               <button onClick={() => setShowMaidModal(false)} className="close-modal-btn">×</button>
             </div>
             <form onSubmit={handleMaidSubmit} className="modal-form">
+              <div className="form-group">
+                <label>Maid Email (Read-only)</label>
+                <input
+                  type="text"
+                  disabled
+                  value={selectedMaid?.maid_email || ""}
+                  className="read-only-input"
+                />
+              </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Age (years)</label>
